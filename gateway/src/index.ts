@@ -29,10 +29,10 @@ const checkJwt = expressjwt({
     cache: true,
     rateLimit: true,
     jwksRequestsPerMinute: 5,
-    jwksUri: process.env.AUTH0_JWKS_URI as string
+    jwksUri: process.env.AUTH0_JWKS_URI!
   }) as GetVerificationKey,
-  audience: process.env.AUTH0_AUDIENCE,
-  issuer: process.env.AUTH0_ISSUER,
+  audience: process.env.AUTH0_AUDIENCE!,
+  issuer: process.env.AUTH0_ISSUER!,
   algorithms: ['RS256']
 });
 
@@ -87,6 +87,10 @@ app.use('/api/users', checkJwt, verifyAndInject, gatewayLogger, apiProxy);
 // Express requires exactly 4 arguments for error handlers.
 // -----------------------------------------------------------------------------
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+  // Log the error to your terminal so you can see what went wrong
+  console.error('JWKS Url:', process.env.AUTH0_JWKS_URI);
+  console.error('Gateway Error:', err);
+
   if (err.name === 'UnauthorizedError') {
     return res.status(401).json({ error: 'Invalid or missing token' });
   }
