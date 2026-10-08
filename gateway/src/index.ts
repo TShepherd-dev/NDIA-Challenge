@@ -1,9 +1,10 @@
+import 'dotenv/config'; // Absolute top of the file
 import express, { Request, Response, NextFunction } from 'express';
 import { expressjwt, GetVerificationKey } from 'express-jwt';
 import jwksRsa from 'jwks-rsa';
 import { createProxyMiddleware } from 'http-proxy-middleware';
 
-const app = express();
+export const app = express();
 
 // -----------------------------------------------------------------------------
 // TypeScript Interface Extension
@@ -28,10 +29,10 @@ const checkJwt = expressjwt({
     cache: true,
     rateLimit: true,
     jwksRequestsPerMinute: 5,
-    jwksUri: `https://YOUR_TENANT.auth0.com/.well-known/jwks.json`
+    jwksUri: process.env.AUTH0_JWKS_URI as string
   }) as GetVerificationKey,
-  audience: 'YOUR_API_IDENTIFIER',
-  issuer: `https://YOUR_TENANT.auth0.com/`,
+  audience: process.env.AUTH0_AUDIENCE,
+  issuer: process.env.AUTH0_ISSUER,
   algorithms: ['RS256']
 });
 
