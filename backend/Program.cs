@@ -21,6 +21,7 @@ using Microsoft.AspNetCore.Mvc;
 var builder = WebApplication.CreateBuilder(args);
 var app = builder.Build();
 
+var ApiRootUrl = builder.Configuration["ApiRootUrl"];
 
 // -----------------------------------------------------------------------------
 // DATA STORE
@@ -32,9 +33,9 @@ var app = builder.Build();
 // User 3 is the "real" Auth0 Demo User
 // 
 var UserDatabase = new ConcurrentDictionary<string, User>();
-UserDatabase.TryAdd("1", new User("1", "Alice Smith", "alice@example.com","auth0|6ac71cc41c7eaaaaaaaa"));
-UserDatabase.TryAdd("2", new User("2", "Bob Jones", "bob@example.com","auth0|6ac71cc41c7e5406bbbbbbbb"));
-UserDatabase.TryAdd("3", new User("3", "Timbo Jones", "tim@example.com","auth0|6ac71cc41c7e5406672aa35f"));
+UserDatabase.TryAdd("1", new User("1", "Alice Smith", "alice@example.com", true, "auth0|6ac71cc41c7eaaaaaaaa"));
+UserDatabase.TryAdd("2", new User("2", "Bob Jones", "bob@example.com", true, "auth0|6ac71cc41c7e5406bbbbbbbb"));
+UserDatabase.TryAdd("3", new User("3", "Timbo Jones", "tim@example.com", true, "auth0|6ac71cc41c7e5406672aa35f"));
 
 // -----------------------------------------------------------------------------
 // ACTIVE API USER CACHE
@@ -57,8 +58,7 @@ app.Use(async (context, next) =>
     // The "X-Verified-User" header is expected to contain the external user ID provided by the gateway.
     //
     // Note - depending on the API's functions, it may be more appropriate to implement this 
-    // particular check as a EndPointFilter so it can be applied to paricular routes as required. 
-    // There may be routes that do not require this check.
+    // check as a EndPointFilter so it can be applied to particular routes as required. 
     //
     if (!context.Request.Headers.TryGetValue("X-Verified-User", out var verifiedUserId) 
         || string.IsNullOrWhiteSpace(verifiedUserId))
@@ -81,16 +81,21 @@ app.Use(async (context, next) =>
         return; // Abort the pipeline, do not call next()
     }
 
-    // Perform a lookup of the external user ID in the cache or database as needed
+    // -------------------------------------
+    // Try to get the rich Api User object
     var externalUserId = verifiedUserId.ToString();
+
+    //Pass 1 - ActiveApiUserCache
     var requestUser = ActiveApiUserCache.Get(externalUserId);
     if (requestUser == null)
     {
-        // Simulate a database lookup or other retrieval mechanism
-        requestUser = UserDatabase.TryGetValue(externalUserId, out var user) ? user : null;
+        // Pass 2 - Database/DataStore lookup
+        // he lookup is based on the user's externalId, ie their Auth0 userId, that is passed through
+        // from the gateway
+        requestUser = UserDatabase.Where(u => u.Value.ExternalId == externalUserId).Select(u => u.Value).FirstOrDefault();
         if(requestUser == null)
         {
-            // If the user is still not found, return a 403 Forbidden
+            // If the User is still not found in the database, return a 403 Forbidden or something appropriate
             // the alternative here is that the API creates a new user record automatically
             // but for this demo, simply return a 403.
             var problem = new ProblemDetails
@@ -109,8 +114,7 @@ app.Use(async (context, next) =>
             return; // Abort the pipeline, do not call next()
         }
 
-        // got the user from the "database", cache it for 10 minutes
-        //
+        // got the rich Api User from the "database", cache it for 10 minutes
         // in a production system, this would most likely be a sliding expiration or some other caching strategy.
         //
         ActiveApiUserCache.Set(externalUserId, requestUser, TimeSpan.FromMinutes(10));
@@ -132,16 +136,26 @@ app.Use(async (context, next) =>
 // Returns the full collection of users, without the externalId.
 app.MapGet("/api/users", () => 
 {
-    var usersWithoutExternalId = UserDatabase.Values.Select(u => new UserDto(u.Id, u.Name, u.Email));
+    var usersWithoutExternalId = UserDatabase.Values
+        .Where(u => u.active)
+        .Select(u => new UserDto(u.Id, u.Name, u.Email, u.active));
     return Results.Ok(usersWithoutExternalId);
 });
 
 // GET /api/users/{id}
 // Looks up a specific user by ID. Returns 404 if not found.
 app.MapGet("/api/users/{id}", (string id) =>
-    UserDatabase.TryGetValue(id, out var user) 
-        ? Results.Ok(new UserDto(user.Id, user.Name, user.Email)) 
-        : Results.NotFound(new { error = $"User '{id}' not found." }));
+{
+    UserDatabase.TryGetValue(id, out var user);
+    if(user is not null && user.active)
+    {
+        return Results.Ok(new UserDto(user.Id, user.Name, user.Email, user.active));
+    }
+    else
+    {
+        return Results.NotFound(new { error = $"User '{id}' not found." });
+    }
+});
 
 // POST /api/users
 // Creates a new user. Generates a short unique ID and returns a 201 Created response.
@@ -154,12 +168,12 @@ app.MapPost("/api/users", (CreateUserDto dto) =>
     }
 
     var newId = Guid.NewGuid().ToString("N")[..8];
-    var newUser = new User(newId, dto.Name, dto.Email, "");  // default set the externalId to an empty string
+    var newUser = new User(newId, dto.Name, dto.Email, true, "");  // default set the externalId to an empty string
     
     UserDatabase[newId] = newUser;
 
     // Return 201 Created with the Location header pointing to the newly created resource
-    return Results.Created($"/api/users/{newId}", new UserDto(newUser.Id, newUser.Name, newUser.Email));
+    return Results.Created($"/api/users/{newId}", new UserDto(newUser.Id, newUser.Name, newUser.Email, newUser.active));
 });
 
 // PUT /api/users/{id}
@@ -172,23 +186,30 @@ app.MapPut("/api/users/{id}", (string id, UpdateUserDto dto) =>
         return Results.BadRequest(new { error = "Name and email are required." });
     }
 
-    // get the current user from the database and update it with the new values
-    if (!UserDatabase.TryGetValue(id, out var existingUser) || existingUser is null)
+    // get the current user from the database
+    if (!UserDatabase.TryGetValue(id, out var existingUser) || existingUser is null || !existingUser.active)
     {
+        // if the user doesn't exist or is inactive, return 404
         return Results.NotFound(new { error = $"User '{id}' not found." });
     }
+
+    // update it with the new values
     var updatedUser = existingUser with { Name = dto.Name, Email = dto.Email };
     UserDatabase[id] = updatedUser;
 
-    return Results.Ok(new UserDto(updatedUser.Id, updatedUser.Name, updatedUser.Email));
+    return Results.Ok(new UserDto(updatedUser.Id, updatedUser.Name, updatedUser.Email, updatedUser.active));
 });
 
 // DELETE /api/users/{id}
-// Removes a user from the store. Returns 204 No Content on success.
+// This LOGICALLY removes a user from the store (sets the active flag to false). Returns 204 No Content on success.
 app.MapDelete("/api/users/{id}", (string id) =>
 {
-    if (UserDatabase.TryRemove(id, out _))
+    // get the user from the database
+    if (UserDatabase.TryGetValue(id, out var user) && user is not null && user.active)
     {
+        // set the active flag to false
+        var updatedUser = user with { active = false };
+        UserDatabase[id] = updatedUser; 
         return Results.NoContent();
     }
 
@@ -199,13 +220,13 @@ app.MapDelete("/api/users/{id}", (string id) =>
 // APPLICATION BOOTSTRAP
 // Force the backend to listen on port 3001 to align with the Gateway proxy target.
 // -----------------------------------------------------------------------------
-app.Run("http://localhost:3001");
+app.Run(ApiRootUrl);
 
 // -----------------------------------------------------------------------------
 // DATA TRANSFER OBJECTS & MODELS
 // Utilizing C# records for concise, immutable data structures.
 // -----------------------------------------------------------------------------
-public record User(string Id, string Name, string Email, string ExternalId);
-public record UserDto(string Id, string Name, string Email);  
+public record User(string Id, string Name, string Email, bool active, string ExternalId);
+public record UserDto(string Id, string Name, string Email, bool active);  
 public record CreateUserDto(string Name, string Email);
 public record UpdateUserDto(string Name, string Email);
