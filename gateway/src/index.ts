@@ -1,14 +1,16 @@
 import 'dotenv/config'; // Absolute top of the file
+import { randomUUID } from 'crypto';   // for generating unique request IDs for correlations
+
 import express, { Request, Response, NextFunction } from 'express';
-import { expressjwt, GetVerificationKey } from 'express-jwt';
+import { expressjwt } from 'express-jwt';
 import jwksRsa from 'jwks-rsa';
 import { createProxyMiddleware } from 'http-proxy-middleware';
-
+import { gatewayLogger } from './logger';
 export const app = express();
 
 // -----------------------------------------------------------------------------
 // TypeScript Interface Extension
-// We extend the standard Express Request so TypeScript knows the JWT middleware
+// Extend the standard Express Request so TypeScript knows that expressjwt
 // will inject an 'auth' object containing the 'sub' (User ID) string.
 // -----------------------------------------------------------------------------
 interface AuthenticatedRequest extends Request {
@@ -18,58 +20,68 @@ interface AuthenticatedRequest extends Request {
   };
 }
 
+// setup the Correlation id middleware
+app.use((req: Request, res: Response, next: NextFunction) => {
+  // check if there is one already from an upstream service, otherwise generate a new one
+  const correlationId = req.headers['x-correlation-id'] || randomUUID();
+  req.headers['x-correlation-id'] = correlationId;
+  res.setHeader('X-Correlation-ID', correlationId);
+  next();
+});
+
+// Wire in the global gateway logger
+app.use(gatewayLogger);
+
 // -----------------------------------------------------------------------------
-// 1. JWKS Caching Setup
-// Fetches and caches the Identity Provider's public keys.
+// Step 1. JWKS Caching config
+// This grabs the JWKS signature information from Auth0 and caches it for efficient JWT token verification
+// as the requests hit this gateway
+// The library also handles the verification of the token's expiry,audience and issuer
+// - if ok, the request proceeds to the next middleware in the pipeline
+// - if not, throw error and terminate the request
 // -----------------------------------------------------------------------------
 const checkJwt = expressjwt({
-  // The 'as GetVerificationKey' cast is required by modern express-jwt versions 
-  // to reconcile types with the jwks-rsa library.
   secret: jwksRsa.expressJwtSecret({
-    cache: true,
-    rateLimit: true,
-    jwksRequestsPerMinute: 5,
-    jwksUri: process.env.AUTH0_JWKS_URI!
-  }) as GetVerificationKey,
+    jwksUri: process.env.AUTH0_JWKS_URI!,
+    // caches the JWKS signature keys to improve performance and reduce network calls back to Auth0
+    cache: true,      
+    // enable rate limit protection to avoid exceeding the allowed number of JWKS requests to Auth0 and gateway
+    // being limited. Important safeguard against DoS attacks
+    // Configured to 5 JWKS requests per minute
+    rateLimit: true,  
+    jwksRequestsPerMinute: 5
+  }),
   audience: process.env.AUTH0_AUDIENCE!,
   issuer: process.env.AUTH0_ISSUER!,
-  algorithms: ['RS256']
+  algorithms: ['RS256']      // must set this - prevents possible tampering of the token to a weaker encryption
 });
 
 // -----------------------------------------------------------------------------
-// 2. Enforce Policy & Inject Header
+// Step 2. Enforce Policy & Inject UserId Header
 // -----------------------------------------------------------------------------
 const verifyAndInject = (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-  // TypeScript enforces safe checking of the auth object
+  // check to ensure the request has now has the decoded token claims and contains a 'sub' claim value
   if (!req.auth || !req.auth.sub) {
-    return res.status(401).json({ error: 'Unauthorized' });
+    // if either fails, the request is considered unauthorised so respond with a 401
+    //
+    // create an error object to pass to the global error handler
+    // for ambiguity, create a generic error message rather than exposing the specific situation
+    const error = new Error('Invalid or missing token');
+    error.name = 'UnauthorizedError'; 
+    return next(error);
   }
   
-  // Inject the required Zero Trust header for the .NET backend
-  req.headers['x-verified-user'] = req.auth.sub;
+  // Inject the UserId/sub claim value into the request as a header to pass thru to the backend api
+  req.headers['X-Verified-User'] = req.auth.sub;
   next();
 };
 
 // -----------------------------------------------------------------------------
-// 3. JSON Structured Logging
-// -----------------------------------------------------------------------------
-const gatewayLogger = (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-  const logEntry = {
-    timestamp: new Date().toISOString(),
-    method: req.method,
-    path: req.originalUrl,
-    sourceIp: req.ip,
-    userId: req.auth?.sub // Optional chaining is a clean TS/JS feature here
-  };
-  console.log(JSON.stringify(logEntry));
-  next();
-};
-
-// -----------------------------------------------------------------------------
-// 4. The Reverse Proxy
+// Step 3. The Reverse Proxy
+// This middleware handles forwarding requests to the backend API, removing the Authorization header containing the original token
 // -----------------------------------------------------------------------------
 const apiProxy = createProxyMiddleware({
-  target: 'http://localhost:3001', // Points to your .NET Minimal API
+  target: process.env.BACKEND_API_URI!,
   changeOrigin: true,
   onProxyReq: (proxyReq, req, res) => {
     // Strip the original JWT so the backend never sees the token
@@ -78,25 +90,33 @@ const apiProxy = createProxyMiddleware({
 });
 
 // -----------------------------------------------------------------------------
-// 5. Wire the pipeline together
+// 4. Wire the pipeline together
+// The processing flow for the route is: check the token validity -> verifyAndInject -> apiProxy
 // -----------------------------------------------------------------------------
-app.use('/api/users', checkJwt, verifyAndInject, gatewayLogger, apiProxy);
+app.use('/api/users', checkJwt, verifyAndInject, apiProxy);
 
 // -----------------------------------------------------------------------------
-// 6. Global Error Handler
-// Express requires exactly 4 arguments for error handlers.
+// Gateway Error Handler
 // -----------------------------------------------------------------------------
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
-  // Log the error to your terminal so you can see what went wrong
-  console.error('JWKS Url:', process.env.AUTH0_JWKS_URI);
-  console.error('Gateway Error:', err);
-
+  // Log the error to terminal
+  //
+  // gateway cannot leak any internal stack traces or sensitive information back to the client
+  // just present a simple message
+  //
   if (err.name === 'UnauthorizedError') {
+    // this catches error where the token is missing entirely or it is invalid for whatever reason
+    console.log('UnauthorisedError:', 'Invalid or missing token');
     return res.status(401).json({ error: 'Invalid or missing token' });
   }
   
   // Catch-all 500 ensures no stack traces leak to the client
+  console.log('InternalServerError:', 'Internal Server Error');
   return res.status(500).json({ error: 'Internal Server Error' });
 });
 
-app.listen(3000, () => console.log('Gateway running on port 3000'));
+// a bit of conditional logic to prevent the server from starting during tests
+// the tests will start the server themselves if needed
+if (process.env.NODE_ENV !== 'test') {
+  app.listen(process.env.GATEWAY_PORT, () => console.log(`Gateway running on port ${process.env.GATEWAY_PORT}`));
+}
