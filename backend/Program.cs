@@ -218,7 +218,7 @@ app.MapDelete("/api/users/{id}", (string id) =>
 
 // -----------------------------------------------------------------------------
 // APPLICATION BOOTSTRAP
-// Force the backend to listen on port 3001 to align with the Gateway proxy target.
+// This url needs to match the Api url configured within the Gateway side
 // -----------------------------------------------------------------------------
 app.Run(ApiRootUrl);
 
