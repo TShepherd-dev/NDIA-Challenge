@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
-using Microsoft.Extensions.Caching.Memory;
+using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Caching.Memory;
 
 // -----------------------------------------------------------------------------
 // BACKEND INTERNAL API layer - protected by the node Gateway - no public access
@@ -19,8 +20,27 @@ using Microsoft.AspNetCore.Mvc;
 // -----------------------------------------------------------------------------
 
 var builder = WebApplication.CreateBuilder(args);
+
+// 1. Register the Problem Details service and exception handler
+builder.Services.AddProblemDetails();
+builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+
 var app = builder.Build();
 
+// -----------------------------------------------------------------------------
+// Exception Handling Middleware
+// It must be placed early to catch errors from subsequent middleware.
+app.UseExceptionHandler();
+
+// -----------------------------------------------------------------------------
+// CONFIGURATION
+//
+// Using a simple appsettings configuration and global configuration object
+// to retrieve the API root URL.
+//
+// Production environment configuration would typically involve more robust settings management using
+// IOptions pattern for strongly-typed configuration would be preferred, secret management, etc
+//
 var ApiRootUrl = builder.Configuration["ApiRootUrl"];
 
 // -----------------------------------------------------------------------------
@@ -216,11 +236,56 @@ app.MapDelete("/api/users/{id}", (string id) =>
     return Results.NotFound(new { error = $"User '{id}' not found." });
 });
 
+// Test Route for throwing an exception before logically deleting a user
+// This is intended for testing error handling in the API.
+// DELETE /api/users/{id}
+// This LOGICALLY removes a user from the store (sets the active flag to false). Returns 204 No Content on success.
+app.MapDelete("/api/users/{id}/error", (string id) =>
+{
+    // there might be some operation here to retrieve the user from the database
+    // but the database server may have gone offline or the network has crashed 
+    //
+    // this should be caught by the global handler
+    //
+    throw new Exception("Simulated error before logically deleting the user.");
+});
+
 // -----------------------------------------------------------------------------
 // APPLICATION BOOTSTRAP
 // This url needs to match the Api url configured within the Gateway side
 // -----------------------------------------------------------------------------
 app.Run(ApiRootUrl);
+
+// -----------------------------------------------------------------------------
+// GLOBAL EXCEPTION HANDLER
+// This handler will catch any unhandled exceptions thrown during request processing
+// and return a standardized Problem Details 500 response to the client.
+// -----------------------------------------------------------------------------
+public sealed class GlobalExceptionHandler(ILogger<GlobalExceptionHandler> logger) : IExceptionHandler
+{
+    public async ValueTask<bool> TryHandleAsync(HttpContext httpContext, Exception exception, CancellationToken cancellationToken)
+    {
+        // Log the exception with the API's internal console (and potentially other logging providers)
+        logger.LogError(exception, "Unhandled exception occurred while processing request {Path}", httpContext.Request.Path);
+
+        // Construct the standard Problem Details response for the client
+        // this should not leak any sensitive internal details to the client or Gateway
+        var problem = new ProblemDetails
+        {
+            Status = StatusCodes.Status500InternalServerError,
+            Title = "Internal Server Error",
+            Detail = "An unexpected server error occurred.",
+            Type = "https://tools.ietf.org/html/rfc7231#section-6.6.1",
+            Instance = httpContext.Request.Path
+        };
+
+        httpContext.Response.StatusCode = StatusCodes.Status500InternalServerError;
+        httpContext.Response.ContentType = "application/problem+json";
+        await httpContext.Response.WriteAsJsonAsync(problem, cancellationToken);
+
+        return true;
+    }
+}
 
 // -----------------------------------------------------------------------------
 // DATA TRANSFER OBJECTS & MODELS
