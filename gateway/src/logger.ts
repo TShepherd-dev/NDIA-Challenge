@@ -22,7 +22,10 @@ export const gatewayLogger = (req: Request, res: Response, next: NextFunction) =
       path: req.originalUrl,
       sourceIp: req.ip || req.socket.remoteAddress,
       userId: userId,
-      statusCode: res.statusCode, // Captures 200, 401, 403, 500, etc.
+      statusCode: res.statusCode,   // Captures 200, 401, 403, 500, etc - to get more data like the response body, 
+                                    // additional headers, etc., need to extend createProxyMiddleware and register
+                                    // a onProxyRes handler to capture additional response details and integrate with
+                                    // this logging logic
       durationMs: duration
     };
 
