@@ -2,12 +2,20 @@
 
 This repository contains a proof-of-concept Zero Trust architecture demonstrating strict perimeter defense, identity validation, and microservice isolation. 
 
-## Architectural Decisions
+## Project Structure
+The repository is strictly divided to ensure clean separation between the perimeter gateway and the internal domain logic:
+* `/gateway` - Node.js (TypeScript/Express) Zero Trust Perimeter
+* `/backend` - .NET 8 Minimal API Internal Service
 
-*   **Polyglot Microservices:** The API Gateway is built in **Node.js (TypeScript)** to leverage industry-standard edge-proxy identity middleware (`express-jwt`, `jwks-rsa`). The downstream User API is built as a **.NET Minimal API** to demonstrate high-performance, strongly-typed RESTful service execution.
-*   **Separation of Concerns:** Authentication is entirely offloaded to the Gateway. The .NET backend is completely unaware of JWTs, Identity Providers, or cryptographic validation, relying strictly on perimeter network enforcement and injected headers.
-*   **JWKS Caching:** The Gateway caches the Identity Provider's public keys locally. It respects the IdP's `Cache-Control` rate limits, ensuring validation latency remains strictly internal without making an outbound HTTP call on every request.
-*   **Defense in Depth:** The backend implements a Zero Trust middleware check. Even if a request physically reaches the backend, it will be rejected with a `403 Forbidden` if it lacks the cryptographically injected `X-Verified-User` header.
+## Architectural Decisions & Evaluation Criteria
+
+- **Polyglot Microservices:** The API Gateway is built in **Node.js (TypeScript)** to leverage industry-standard edge-proxy identity middleware (`express-jwt`, `jwks-rsa`). The downstream User API is built as a **.NET Minimal API** to demonstrate high-performance, strongly-typed RESTful service execution.
+- **Separation of Concerns:** Authentication is entirely offloaded to the Gateway. The .NET backend is completely unaware of JWTs, Identity Providers, or cryptographic validation, relying strictly on perimeter network enforcement and injected headers.
+- **Security & Data Sanitization:** The Gateway explicitly strips/overwrites any inbound `X-Verified-User` headers from the public web to prevent header-spoofing attacks.
+- **Standardized Error Handling:** Both the Gateway and the .NET backend are designed to return standard **RFC 7807 Problem Details** (`application/problem+json`) to ensure frontend consumers receive a predictable error contract without leaking sensitive stack traces.
+- **Observability & Debuggability:** 
+  - The Gateway automatically generates and injects an `X-Correlation-ID` into every request. 
+  - Gateway telemetry outputs strictly structured JSON logs (`res.on('finish')`), capturing status codes, latencies, and correlation IDs for seamless integration with enterprise log aggregators (e.g., Datadog, App Insights).
 
 ## Traffic Flow
 
@@ -27,7 +35,8 @@ sequenceDiagram
     GW->>IdP: Fetch JWKS (Cached after first request)
     IdP-->>GW: Returns Public Keys
     GW->>GW: Verify Signature, exp, iss, aud
-    GW->>GW: Strip JWT, Inject X-Verified-User: <sub_id>
+    GW->>GW: Strip existing internal headers (Sanitization)
+    GW->>GW: Inject X-Verified-User: <sub_id> & X-Correlation-ID
     GW->>API: Proxy GET /api/users
     API->>API: Verify X-Verified-User header exists
     API-->>GW: 200 OK (User JSON)
@@ -51,6 +60,7 @@ Navigate to the `gateway/` directory and create a `.env` file based on your OIDC
 AUTH0_ISSUER=https://YOUR_[TENANT.auth0.com/](https://TENANT.auth0.com/)
 AUTH0_AUDIENCE=https://YOUR_API_IDENTIFIER
 AUTH0_JWKS_URI=https://YOUR_[TENANT.auth0.com/.well-known/jwks.json](https://TENANT.auth0.com/.well-known/jwks.json)
+TARGET_URL=[http://127.0.0.1:3001](http://127.0.0.1:3001)
 ```
 
 ### 2. Running the Services
@@ -74,12 +84,16 @@ dotnet run
 ## Testing Scenarios
 
 ### 1. Automated Integration Tests
-The Gateway includes a Jest test suite that intercepts outbound HTTP calls (mocking the OIDC provider) to prove the perimeter successfully blocks invalid traffic before routing.
+The Gateway includes a Jest test suite utilizing `nock` to hermetically mock the OIDC provider (Auth0) and the downstream .NET API. This guarantees offline, deterministic testing of the Zero Trust perimeter without external dependencies. 
 
 ```bash
 cd gateway
 npm test
 ```
+*Tests explicitly verify:*
+* JWT validation logic and IdP cryptographic rejection.
+* Zero Trust blocking (requests without tokens are rejected at the edge).
+* Context injection and proxy routing functionality.
 
 ### 2. Manual Success Flow (Postman/cURL)
 To execute a successful end-to-end request, retrieve a valid token from your IdP and submit it to the Gateway:
@@ -89,19 +103,19 @@ curl --request GET \
   --url http://localhost:3000/api/users \
   --header 'Authorization: Bearer <YOUR_VALID_JWT>'
 ```
-**Expected Result:** `200 OK` with the user array. The Gateway terminal will output a structured JSON log containing the User ID.
+**Expected Result:** `200 OK` with the user array. The Gateway terminal will output a structured JSON log containing the User ID, Correlation ID, and duration.
 
 ### 3. Manual Failure Scenarios
 Prove the Zero Trust boundaries by simulating attacks:
 
-*   **Bypass the Gateway:** Send a request directly to the backend without the proxy header.
-    ```bash
-    curl --request GET --url http://localhost:3001/api/users
-    ```
-    **Expected Result:** `403 Forbidden`. The backend rejects the direct connection.
+- **Bypass the Gateway:** Send a request directly to the backend without the proxy header.
+  ```bash
+  curl --request GET --url http://localhost:3001/api/users
+  ```
+  **Expected Result:** `403 Forbidden`. The backend rejects the direct connection.
     
-*   **Unauthenticated Gateway Access:** Send a request to the Gateway without a token.
-    ```bash
-    curl --request GET --url http://localhost:3000/api/users
-    ```
-    **Expected Result:** `401 Unauthorized`. The Gateway blocks the request.
+- **Unauthenticated Gateway Access:** Send a request to the Gateway without a token.
+  ```bash
+  curl --request GET --url http://localhost:3000/api/users
+  ```
+  **Expected Result:** `401 Unauthorized`. The Gateway instantly blocks the request, logging the failed attempt.
