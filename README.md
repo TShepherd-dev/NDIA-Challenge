@@ -15,7 +15,7 @@ The repository is strictly divided to ensure clean separation between the perime
 - **Standardized Error Handling:** Both the Gateway and the .NET backend are designed to return standard **RFC 7807 Problem Details** (`application/problem+json`) to ensure frontend consumers receive a predictable error contract without leaking sensitive stack traces.
 - **Observability & Debuggability:** 
   - The Gateway automatically generates and injects an `X-Correlation-ID` into every request. 
-  - Gateway telemetry outputs strictly structured JSON logs (`res.on('finish')`), capturing status codes, latencies, and correlation IDs for seamless integration with enterprise log aggregators (e.g., Datadog, App Insights).
+  - Gateway telemetry outputs strictly structured JSON logs (`res.on('finish')`), capturing status codes, latencies, and correlation IDs for integration with enterprise log aggregators (e.g., Datadog, App Insights).
 
 ## Traffic Flow
 
@@ -53,14 +53,15 @@ sequenceDiagram
 ## Setup Instructions
 
 ### 1. Gateway Configuration (.env)
-Navigate to the `gateway/` directory and create/edit a `.env` file based on your Auth0 / OIDC provider settings. 
+Navigate to the `gateway/` directory and create/edit a `.env` file with the details below - these are for a test throwaway Auth0 tenant
 
-**`.env.example`**
+**`.env`**
 ```env
-AUTH0_ISSUER=https://YOUR_[TENANT.auth0.com/](https://TENANT.auth0.com/)
-AUTH0_AUDIENCE=https://YOUR_API_IDENTIFIER
-AUTH0_JWKS_URI=https://YOUR_[TENANT.auth0.com/.well-known/jwks.json](https://TENANT.auth0.com/.well-known/jwks.json)
-TARGET_URL=[http://127.0.0.1:3001](http://127.0.0.1:3001)
+AUTH0_ISSUER=https://dev-tims-ndia.au.auth0.com/
+AUTH0_AUDIENCE=https://tim-zerotrust-gateway
+AUTH0_JWKS_URI=https://dev-tims-ndia.au.auth0.com/.well-known/jwks.json
+GATEWAY_PORT=3000
+BACKEND_API_URI=http://localhost:3001
 ```
 
 ### 2. Running the Services
@@ -96,19 +97,16 @@ npm test
 * Context injection and proxy routing functionality.
 
 ### 2. Manual Success Flow (Postman/cURL)
-To execute a successful end-to-end request, retrieve a valid token from your IdP and submit it to the Gateway:
+To execute a successful end-to-end request, retrieve a valid token from Auth0 and submit the test url to the Gateway:
 
 Reviewer Note: Authentication Setup
 To help the review process, this project is wired to a dedicated, throwaway Auth0 test tenant. To generate a valid test JWT, use the included `NDIA-Challenge-Tim-Shepherd.postman_collection.json` file. It is pre-configured with a test Client ID and Secret to hit the `POST /oauth/token` Auth0 endpoint and automatically attach the resulting Bearer token to subsequent requests.
 
+There are a set of testing urls within the Postman file that can be used for manual testing.
+
 Note: For a production deployment, these credentials would be injected via a secure vault (e.g., Azure Key Vault / AWS Secrets Manager) and never committed to source control.
 
-```bash
-curl --request GET \
-  --url http://localhost:3000/api/users \
-  --header 'Authorization: Bearer <YOUR_VALID_JWT>'
-```
-**Expected Result:** `200 OK` with the user array. The Gateway terminal will output a structured JSON log containing the User ID, Correlation ID, and duration.
+With each test, the Gateway terminal will output a structured JSON log containing the User ID, Correlation ID, and duration.
 
 ### 3. Manual Failure Scenarios
 Prove the Zero Trust boundaries by simulating attacks:
