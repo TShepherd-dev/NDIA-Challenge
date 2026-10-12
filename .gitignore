@@ -1,3 +1,4 @@
 /gateway/node_modules
+/gateway/.env
 /backend/bin
 /backend/obj
