@@ -29,6 +29,20 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   next();
 });
 
+// -----------------------------------------------------------------------------
+// Global Header Sanitization
+// Strip internal routing headers from incoming public requests so they cannot be spoofed
+// 
+app.use((req, res, next) => {
+  // remove the header that this Gateway is going to inject in case some bad actor
+  // is trying some hacking attempt
+  delete req.headers['x-verified-user'];
+  
+  // could remove other internal/custom headers here as well if required
+  
+  next();
+});
+
 // Wire in the global gateway logger
 app.use(gatewayLogger);
 
