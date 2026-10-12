@@ -85,20 +85,7 @@ app.Use(async (context, next) =>
     {
         // if the header is missing or empty, it indicates a direct access attempt
         // Fail securely: Return a clean 403 Forbidden without leaking internal stack traces
-        var problem = new ProblemDetails
-        {
-            Status = StatusCodes.Status403Forbidden,
-            Title = "Forbidden",
-            Detail = "Zero Trust boundary violation: Missing verification context.",
-            Type = "https://tools.ietf.org/html/rfc7231#section-6.5.3",
-            Instance = context.Request.Path
-        };
-
-        context.Response.StatusCode = StatusCodes.Status403Forbidden;
-        context.Response.ContentType = "application/problem+json";
-        
-        await context.Response.WriteAsJsonAsync(problem);
-        return; // Abort the pipeline, do not call next()
+        throw new UnauthorizedAccessException("Missing verification context.");
     }
 
     // -------------------------------------
@@ -118,20 +105,7 @@ app.Use(async (context, next) =>
             // If the User is still not found in the database, return a 403 Forbidden or something appropriate
             // the alternative here is that the API creates a new user record automatically
             // but for this demo, simply return a 403.
-            var problem = new ProblemDetails
-            {
-                Status = StatusCodes.Status403Forbidden,
-                Title = "Forbidden",
-                Detail = "Zero Trust boundary violation: User not found.",
-                Type = "https://tools.ietf.org/html/rfc7231#section-6.5.3",
-                Instance = context.Request.Path
-            };
-
-            context.Response.StatusCode = StatusCodes.Status403Forbidden;
-            context.Response.ContentType = "application/problem+json";
-            
-            await context.Response.WriteAsJsonAsync(problem);
-            return; // Abort the pipeline, do not call next()
+            throw new UnauthorizedAccessException("User not found in the database.");
         }
 
         // got the rich Api User from the "database", cache it for 10 minutes
@@ -268,9 +242,33 @@ public sealed class GlobalExceptionHandler(ILogger<GlobalExceptionHandler> logge
         // Log the exception with the API's internal console (and potentially other logging providers)
         logger.LogError(exception, "Unhandled exception occurred while processing request {Path}", httpContext.Request.Path);
 
-        // Construct the standard Problem Details response for the client
+        // -------------------------------------------------------------------------------------------------
+        // return a Problem shaped response to the client
         // this should not leak any sensitive internal details to the client or Gateway
-        var problem = new ProblemDetails
+        //  
+
+        // UnauthorizedAccessException, return a 403 Forbidden response
+        if (exception is UnauthorizedAccessException)
+        {
+            var problem403 = new ProblemDetails
+            {
+                Status = StatusCodes.Status403Forbidden,
+                Title = "Forbidden",
+                Detail = exception.Message,
+                Type = "https://tools.ietf.org/html/rfc7231#section-6.5.3",
+                Instance = httpContext.Request.Path
+            };
+
+            httpContext.Response.StatusCode = StatusCodes.Status403Forbidden;
+            httpContext.Response.ContentType = "application/problem+json";
+            await httpContext.Response.WriteAsJsonAsync(problem403, cancellationToken);
+
+            return true;
+        }
+        
+        // If the exception is not an UnauthorizedAccessException, it will be handled as a 500 Internal Server Error by default.
+        //
+        var problem500 = new ProblemDetails
         {
             Status = StatusCodes.Status500InternalServerError,
             Title = "Internal Server Error",
@@ -281,7 +279,7 @@ public sealed class GlobalExceptionHandler(ILogger<GlobalExceptionHandler> logge
 
         httpContext.Response.StatusCode = StatusCodes.Status500InternalServerError;
         httpContext.Response.ContentType = "application/problem+json";
-        await httpContext.Response.WriteAsJsonAsync(problem, cancellationToken);
+        await httpContext.Response.WriteAsJsonAsync(problem500, cancellationToken);
 
         return true;
     }
