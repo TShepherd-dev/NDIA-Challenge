@@ -9,7 +9,7 @@ The repository is strictly divided to ensure clean separation between the perime
 
 ## Architectural Decisions & Evaluation Criteria
 
-- **Polyglot Microservices:** The API Gateway is built in **Node.js (TypeScript)** to leverage industry-standard edge-proxy identity middleware (`express-jwt`, `jwks-rsa`). The downstream User API is built as a **.NET Minimal API** to demonstrate high-performance, strongly-typed RESTful service execution.
+- **Microservices:** The API Gateway is built in **Node.js (TypeScript)** to leverage industry-standard edge-proxy identity middleware (`express-jwt`, `jwks-rsa`). The downstream User API is built as a **.NET Minimal API** to demonstrate high-performance, strongly-typed RESTful service execution.
 - **Separation of Concerns:** Authentication is entirely offloaded to the Gateway. The .NET backend is completely unaware of JWTs, Identity Providers, or cryptographic validation, relying strictly on perimeter network enforcement and injected headers.
 - **Security & Data Sanitization:** The Gateway explicitly strips/overwrites any inbound `X-Verified-User` headers from the public web to prevent header-spoofing attacks.
 - **Standardized Error Handling:** Both the Gateway and the .NET backend are designed to return standard **RFC 7807 Problem Details** (`application/problem+json`) to ensure frontend consumers receive a predictable error contract without leaking sensitive stack traces.
@@ -53,7 +53,7 @@ sequenceDiagram
 ## Setup Instructions
 
 ### 1. Gateway Configuration (.env)
-Navigate to the `gateway/` directory and create a `.env` file based on your OIDC provider settings. 
+Navigate to the `gateway/` directory and create/edit a `.env` file based on your Auth0 / OIDC provider settings. 
 
 **`.env.example`**
 ```env
@@ -84,7 +84,7 @@ dotnet run
 ## Testing Scenarios
 
 ### 1. Automated Integration Tests
-The Gateway includes a Jest test suite utilizing `nock` to hermetically mock the OIDC provider (Auth0) and the downstream .NET API. This guarantees offline, deterministic testing of the Zero Trust perimeter without external dependencies. 
+The Gateway includes a Jest test suite utilizing `nock` to mock the Auth0 provider and the downstream .NET API. This guarantees offline, deterministic testing of the Zero Trust perimeter without external dependencies. 
 
 ```bash
 cd gateway
