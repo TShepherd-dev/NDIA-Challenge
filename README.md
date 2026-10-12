@@ -98,6 +98,11 @@ npm test
 ### 2. Manual Success Flow (Postman/cURL)
 To execute a successful end-to-end request, retrieve a valid token from your IdP and submit it to the Gateway:
 
+Reviewer Note: Authentication Setup
+To help the review process, this project is wired to a dedicated, throwaway Auth0 test tenant. To generate a valid test JWT, use the included `NDIA-Challenge-Tim-Shepherd.postman_collection.json` file. It is pre-configured with a test Client ID and Secret to hit the `POST /oauth/token` Auth0 endpoint and automatically attach the resulting Bearer token to subsequent requests.
+
+Note: For a production deployment, these credentials would be injected via a secure vault (e.g., Azure Key Vault / AWS Secrets Manager) and never committed to source control.
+
 ```bash
 curl --request GET \
   --url http://localhost:3000/api/users \

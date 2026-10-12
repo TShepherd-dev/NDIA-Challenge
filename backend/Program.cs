@@ -153,7 +153,7 @@ app.MapGet("/api/users/{id}", (string id) =>
 
 // POST /api/users
 // Creates a new user. Generates a short unique ID and returns a 201 Created response.
-app.MapPost("/api/users", (CreateUserDto dto) =>
+app.MapPost("/api/users", ([FromForm] CreateUserDto dto) =>
 {
     // Basic validation
     if (string.IsNullOrWhiteSpace(dto.Name) || string.IsNullOrWhiteSpace(dto.Email))
@@ -168,11 +168,11 @@ app.MapPost("/api/users", (CreateUserDto dto) =>
 
     // Return 201 Created with the Location header pointing to the newly created resource
     return Results.Created($"/api/users/{newId}", new UserDto(newUser.Id, newUser.Name, newUser.Email, newUser.active));
-});
+}).DisableAntiforgery();  // <-- disable CSRF token
 
 // PUT /api/users/{id}
 // Fully updates an existing user. Returns 404 if the user doesn't exist.
-app.MapPut("/api/users/{id}", (string id, UpdateUserDto dto) =>
+app.MapPut("/api/users/{id}", (string id, [FromForm] UpdateUserDto dto) =>
 {
     // check the inputs
     if (string.IsNullOrWhiteSpace(dto.Name) || string.IsNullOrWhiteSpace(dto.Email))
@@ -192,7 +192,7 @@ app.MapPut("/api/users/{id}", (string id, UpdateUserDto dto) =>
     UserDatabase[id] = updatedUser;
 
     return Results.Ok(new UserDto(updatedUser.Id, updatedUser.Name, updatedUser.Email, updatedUser.active));
-});
+}).DisableAntiforgery(); // <-- disable CSRF token
 
 // DELETE /api/users/{id}
 // This LOGICALLY removes a user from the store (sets the active flag to false). Returns 204 No Content on success.
@@ -208,7 +208,7 @@ app.MapDelete("/api/users/{id}", (string id) =>
     }
 
     return Results.NotFound(new { error = $"User '{id}' not found." });
-});
+}).DisableAntiforgery();
 
 // Test Route for throwing an exception before logically deleting a user
 // This is intended for testing error handling in the API.
@@ -222,7 +222,7 @@ app.MapDelete("/api/users/{id}/error", (string id) =>
     // this should be caught by the global handler
     //
     throw new Exception("Simulated error before logically deleting the user.");
-});
+}).DisableAntiforgery();
 
 // -----------------------------------------------------------------------------
 // APPLICATION BOOTSTRAP
@@ -272,7 +272,7 @@ public sealed class GlobalExceptionHandler(ILogger<GlobalExceptionHandler> logge
         {
             Status = StatusCodes.Status500InternalServerError,
             Title = "Internal Server Error",
-            Detail = "An unexpected server error occurred.",
+            Detail = "An unexpected server error occurred - see backend API logs for more details.",
             Type = "https://tools.ietf.org/html/rfc7231#section-6.6.1",
             Instance = httpContext.Request.Path
         };

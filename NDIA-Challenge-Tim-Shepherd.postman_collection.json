@@ -8,65 +8,37 @@
 	},
 	"item": [
 		{
-			"name": "https://dev-tims-ndia.au.auth0.com/oauth/token",
+			"name": "http://localhost:3000/api/users",
 			"request": {
-				"method": "POST",
-				"header": [
-					{
-						"key": "content-type",
-						"value": "application/x-www-form-urlencoded"
-					}
-				],
-				"body": {
-					"mode": "urlencoded",
-					"urlencoded": [
+				"auth": {
+					"type": "bearer",
+					"bearer": [
 						{
-							"key": "grant_type",
-							"value": "password",
-							"type": "text"
-						},
-						{
-							"key": "username",
-							"value": "gatewayClientTester@timbodev.com",
-							"type": "text"
-						},
-						{
-							"key": "password",
-							"value": "P@ssw0rD1234!",
-							"type": "text"
-						},
-						{
-							"key": "audience",
-							"value": "https://tim-zerotrust-gateway",
-							"type": "text"
-						},
-						{
-							"key": "client_id",
-							"value": "yLyAZzSbuutnm5jh1OmaA0bvO2xs3VIK",
-							"type": "text"
+							"key": "token",
+							"value": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6IkZiTktlNnFWRHdQNXh1bnNxWTA5NCJ9.eyJpc3MiOiJodHRwczovL2Rldi10aW1zLW5kaWEuYXUuYXV0aDAuY29tLyIsInN1YiI6ImF1dGgwfDZhYzcxY2M0MWM3ZTU0MDY2NzJhYTM1ZiIsImF1ZCI6Imh0dHBzOi8vdGltLXplcm90cnVzdC1nYXRld2F5IiwiaWF0IjoxNzkxODQzODM0LCJleHAiOjE3OTE5MzAyMzQsImd0eSI6InBhc3N3b3JkIiwiYXpwIjoieUx5QVp6U2J1dXRubTVqaDFPbWFBMGJ2TzJ4czNWSUsifQ.advfEc5E-SakAu3PH7odYZAYE5ueZYez1igukyh5m0hh_tpNJ1-pXfhtUjQzGE5CcB0XMZ79_K-4Q7GOwCkPpCeycCA8IznI_aun8RNhqp5t7i8eUDiv6S66WXh0s-xu39xWZlhKCOk3FrNdAHkrSrsxsySdBAEprZOCokdOH7G0TfNW23AdF2QWZrYgEMJgQUilCAdN62dj1G-4WcVzG61buoS-agJwQM6gTAQUeTGHFyM0kfq5uG9RGAs7XmqwObenfODVO4pDNq_cTJvC7r5wW11slJMaiJPPeRegdsPRRIYlHP7n9qr2ORFrXpSBdT4ZzFwRNc1BPZpAQdBnFw",
+							"type": "string"
 						}
 					]
 				},
+				"method": "GET",
+				"header": [],
 				"url": {
-					"raw": "https://dev-tims-ndia.au.auth0.com/oauth/token",
-					"protocol": "https",
+					"raw": "http://localhost:3000/api/users",
+					"protocol": "http",
 					"host": [
-						"dev-tims-ndia",
-						"au",
-						"auth0",
-						"com"
+						"localhost"
 					],
+					"port": "3000",
 					"path": [
-						"oauth",
-						"token"
+						"api",
+						"users"
 					]
-				},
-				"description": "Generated from cURL: curl --request POST \\\n  --url 'https://YOUR_TENANT.auth0.com/oauth/token' \\\n  --header 'content-type: application/x-www-form-urlencoded' \\\n  --data 'grant_type=password' \\\n  --data 'username=testuser@example.com' \\\n  --data 'password=Password123!' \\\n  --data 'audience=https://zero-trust-api' \\\n  --data 'client_id=YOUR_CLIENT_ID'"
+				}
 			},
 			"response": []
 		},
 		{
-			"name": "http://localhost:3000/api/users",
+			"name": "http://localhost:3000/api/users/2",
 			"request": {
 				"auth": {
 					"type": "bearer",
@@ -95,6 +67,229 @@
 				}
 			},
 			"response": []
+		},
+		{
+			"name": "http://localhost:3000/api/users",
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6IkZiTktlNnFWRHdQNXh1bnNxWTA5NCJ9.eyJpc3MiOiJodHRwczovL2Rldi10aW1zLW5kaWEuYXUuYXV0aDAuY29tLyIsInN1YiI6ImF1dGgwfDZhYzcxY2M0MWM3ZTU0MDY2NzJhYTM1ZiIsImF1ZCI6Imh0dHBzOi8vdGltLXplcm90cnVzdC1nYXRld2F5IiwiaWF0IjoxNzkxODQzODM0LCJleHAiOjE3OTE5MzAyMzQsImd0eSI6InBhc3N3b3JkIiwiYXpwIjoieUx5QVp6U2J1dXRubTVqaDFPbWFBMGJ2TzJ4czNWSUsifQ.advfEc5E-SakAu3PH7odYZAYE5ueZYez1igukyh5m0hh_tpNJ1-pXfhtUjQzGE5CcB0XMZ79_K-4Q7GOwCkPpCeycCA8IznI_aun8RNhqp5t7i8eUDiv6S66WXh0s-xu39xWZlhKCOk3FrNdAHkrSrsxsySdBAEprZOCokdOH7G0TfNW23AdF2QWZrYgEMJgQUilCAdN62dj1G-4WcVzG61buoS-agJwQM6gTAQUeTGHFyM0kfq5uG9RGAs7XmqwObenfODVO4pDNq_cTJvC7r5wW11slJMaiJPPeRegdsPRRIYlHP7n9qr2ORFrXpSBdT4ZzFwRNc1BPZpAQdBnFw",
+							"type": "string"
+						}
+					]
+				},
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "formdata",
+					"formdata": [
+						{
+							"key": "Name",
+							"value": "Fred",
+							"type": "text"
+						},
+						{
+							"key": "Email",
+							"value": "fred@here.com",
+							"type": "text"
+						}
+					]
+				},
+				"url": {
+					"raw": "http://localhost:3000/api/users",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "3000",
+					"path": [
+						"api",
+						"users"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "http://localhost:3000/api/users/2",
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6IkZiTktlNnFWRHdQNXh1bnNxWTA5NCJ9.eyJpc3MiOiJodHRwczovL2Rldi10aW1zLW5kaWEuYXUuYXV0aDAuY29tLyIsInN1YiI6ImF1dGgwfDZhYzcxY2M0MWM3ZTU0MDY2NzJhYTM1ZiIsImF1ZCI6Imh0dHBzOi8vdGltLXplcm90cnVzdC1nYXRld2F5IiwiaWF0IjoxNzkxODQzODM0LCJleHAiOjE3OTE5MzAyMzQsImd0eSI6InBhc3N3b3JkIiwiYXpwIjoieUx5QVp6U2J1dXRubTVqaDFPbWFBMGJ2TzJ4czNWSUsifQ.advfEc5E-SakAu3PH7odYZAYE5ueZYez1igukyh5m0hh_tpNJ1-pXfhtUjQzGE5CcB0XMZ79_K-4Q7GOwCkPpCeycCA8IznI_aun8RNhqp5t7i8eUDiv6S66WXh0s-xu39xWZlhKCOk3FrNdAHkrSrsxsySdBAEprZOCokdOH7G0TfNW23AdF2QWZrYgEMJgQUilCAdN62dj1G-4WcVzG61buoS-agJwQM6gTAQUeTGHFyM0kfq5uG9RGAs7XmqwObenfODVO4pDNq_cTJvC7r5wW11slJMaiJPPeRegdsPRRIYlHP7n9qr2ORFrXpSBdT4ZzFwRNc1BPZpAQdBnFw",
+							"type": "string"
+						}
+					]
+				},
+				"method": "PUT",
+				"header": [],
+				"body": {
+					"mode": "formdata",
+					"formdata": [
+						{
+							"key": "Name",
+							"value": "Chamged Name",
+							"type": "text"
+						},
+						{
+							"key": "Email",
+							"value": "Changed@here.com",
+							"type": "text"
+						}
+					]
+				},
+				"url": {
+					"raw": "http://localhost:3000/api/users/2",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "3000",
+					"path": [
+						"api",
+						"users",
+						"2"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "http://localhost:3000/api/users/2",
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6IkZiTktlNnFWRHdQNXh1bnNxWTA5NCJ9.eyJpc3MiOiJodHRwczovL2Rldi10aW1zLW5kaWEuYXUuYXV0aDAuY29tLyIsInN1YiI6ImF1dGgwfDZhYzcxY2M0MWM3ZTU0MDY2NzJhYTM1ZiIsImF1ZCI6Imh0dHBzOi8vdGltLXplcm90cnVzdC1nYXRld2F5IiwiaWF0IjoxNzkxODQzODM0LCJleHAiOjE3OTE5MzAyMzQsImd0eSI6InBhc3N3b3JkIiwiYXpwIjoieUx5QVp6U2J1dXRubTVqaDFPbWFBMGJ2TzJ4czNWSUsifQ.advfEc5E-SakAu3PH7odYZAYE5ueZYez1igukyh5m0hh_tpNJ1-pXfhtUjQzGE5CcB0XMZ79_K-4Q7GOwCkPpCeycCA8IznI_aun8RNhqp5t7i8eUDiv6S66WXh0s-xu39xWZlhKCOk3FrNdAHkrSrsxsySdBAEprZOCokdOH7G0TfNW23AdF2QWZrYgEMJgQUilCAdN62dj1G-4WcVzG61buoS-agJwQM6gTAQUeTGHFyM0kfq5uG9RGAs7XmqwObenfODVO4pDNq_cTJvC7r5wW11slJMaiJPPeRegdsPRRIYlHP7n9qr2ORFrXpSBdT4ZzFwRNc1BPZpAQdBnFw",
+							"type": "string"
+						}
+					]
+				},
+				"method": "DELETE",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:3000/api/users/2",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "3000",
+					"path": [
+						"api",
+						"users",
+						"2"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "http://localhost:3000/api/users/2 Copy",
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6IkZiTktlNnFWRHdQNXh1bnNxWTA5NCJ9.eyJpc3MiOiJodHRwczovL2Rldi10aW1zLW5kaWEuYXUuYXV0aDAuY29tLyIsInN1YiI6ImF1dGgwfDZhYzcxY2M0MWM3ZTU0MDY2NzJhYTM1ZiIsImF1ZCI6Imh0dHBzOi8vdGltLXplcm90cnVzdC1nYXRld2F5IiwiaWF0IjoxNzkxODQzODM0LCJleHAiOjE3OTE5MzAyMzQsImd0eSI6InBhc3N3b3JkIiwiYXpwIjoieUx5QVp6U2J1dXRubTVqaDFPbWFBMGJ2TzJ4czNWSUsifQ.advfEc5E-SakAu3PH7odYZAYE5ueZYez1igukyh5m0hh_tpNJ1-pXfhtUjQzGE5CcB0XMZ79_K-4Q7GOwCkPpCeycCA8IznI_aun8RNhqp5t7i8eUDiv6S66WXh0s-xu39xWZlhKCOk3FrNdAHkrSrsxsySdBAEprZOCokdOH7G0TfNW23AdF2QWZrYgEMJgQUilCAdN62dj1G-4WcVzG61buoS-agJwQM6gTAQUeTGHFyM0kfq5uG9RGAs7XmqwObenfODVO4pDNq_cTJvC7r5wW11slJMaiJPPeRegdsPRRIYlHP7n9qr2ORFrXpSBdT4ZzFwRNc1BPZpAQdBnFw",
+							"type": "string"
+						}
+					]
+				},
+				"method": "DELETE",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:3000/api/users/2/error",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "3000",
+					"path": [
+						"api",
+						"users",
+						"2",
+						"error"
+					]
+				}
+			},
+			"response": []
+		}
+	],
+	"auth": {
+		"type": "oauth2",
+		"oauth2": [
+			{
+				"key": "tokenRequestParams",
+				"value": [
+					{
+						"key": "audience",
+						"value": "https://tim-zerotrust-gateway",
+						"enabled": true,
+						"send_as": "request_body"
+					}
+				],
+				"type": "any"
+			},
+			{
+				"key": "clientSecret",
+				"value": "bbGgsvCgsaCd5Pni6vFABgJbBMqY9PMEcUnakD9-vR608qegK4Exanb1_5MEv722",
+				"type": "string"
+			},
+			{
+				"key": "clientId",
+				"value": "yLyAZzSbuutnm5jh1OmaA0bvO2xs3VIK",
+				"type": "string"
+			},
+			{
+				"key": "accessTokenUrl",
+				"value": "https://dev-tims-ndia.au.auth0.com/oauth/token",
+				"type": "string"
+			},
+			{
+				"key": "grant_type",
+				"value": "client_credentials",
+				"type": "string"
+			},
+			{
+				"key": "tokenName",
+				"value": "NDIA Demo Token",
+				"type": "string"
+			},
+			{
+				"key": "addTokenTo",
+				"value": "header",
+				"type": "string"
+			}
+		]
+	},
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"packages": {},
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"packages": {},
+				"exec": [
+					""
+				]
+			}
 		}
 	]
 }
